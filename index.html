@@ -1194,6 +1194,47 @@ function StatsPage() {
 
 function App() {
   const [activeTab, setActiveTab] = React.useState('search');
+  const [auth, setAuth] = React.useState(() => { try { return sessionStorage.getItem('yjbs_auth') === 'ok'; } catch(e) { return false; } });
+  const [pw, setPw] = React.useState('');
+  const [pwErr, setPwErr] = React.useState(false);
+
+  function tryLogin() {
+    if (pw === 'yjbs2026') {
+      try { sessionStorage.setItem('yjbs_auth', 'ok'); } catch(e) {}
+      window.location.reload();
+    } else {
+      setPwErr(true); setPw('');
+    }
+  }
+
+  if (!auth) return (
+    <div style={{minHeight:'100vh', background:'var(--navy)', display:'flex', alignItems:'center', justifyContent:'center'}}>
+      <div style={{background:'#fff', borderRadius:14, padding:'40px 36px', width:320, textAlign:'center', boxShadow:'0 8px 32px rgba(0,0,0,0.3)'}}>
+        <div style={{fontSize:22, fontWeight:700, color:'var(--navy)', marginBottom:6}}>양주백석고</div>
+        <div style={{fontSize:13, color:'var(--muted)', marginBottom:28}}>입시결과 검색도구·교사용</div>
+        <input
+          type="password"
+          placeholder="비밀번호 입력"
+          value={pw}
+          onChange={e=>{setPw(e.target.value); setPwErr(false);}}
+          onKeyDown={e=>e.key==='Enter'&&tryLogin()}
+          style={{
+            width:'100%', padding:'11px 14px', fontSize:14,
+            border: pwErr ? '1.5px solid var(--fail)' : '1.5px solid var(--border)',
+            borderRadius:7, fontFamily:'system-ui,sans-serif', marginBottom:8, boxSizing:'border-box'
+          }}
+          autoFocus
+        />
+        {pwErr && <div style={{fontSize:12, color:'var(--fail)', marginBottom:8}}>비밀번호가 올바르지 않습니다.</div>}
+        <button onClick={tryLogin} style={{
+          width:'100%', padding:'11px', background:'var(--navy)', color:'#fff',
+          border:'none', borderRadius:7, fontFamily:'var(--font)', fontSize:14,
+          fontWeight:600, cursor:'pointer'
+        }}>로그인</button>
+        
+      </div>
+    </div>
+  );
   const [searchUniv, setSearchUniv] = React.useState('');
   const [searchDept, setSearchDept] = React.useState('');
   const [selYears,   setSelYears]   = React.useState([]);
@@ -1280,7 +1321,7 @@ function App() {
     <>
       <header className="header">
         <span className="header-title" style={{flex:1,textAlign:'center',fontSize:16,letterSpacing:'-0.02em'}}>2023~2026 양주백석고 입시결과 검색도구</span>
-        <span style={{fontSize:11,color:'rgba(255,255,255,0.45)',whiteSpace:'nowrap'}}>3학년부 박정수 제작</span>
+        
       </header>
 
       <div style={{background:'var(--card)',borderBottom:'1px solid var(--border)'}}>
