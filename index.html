@@ -1000,7 +1000,7 @@ function StatsPage() {
         </div>
 
         {/* 막대 그래프 */}
-        <div style={{display:'flex', alignItems:'flex-end', gap:16, height:180, padding:'0 8px 28px', marginBottom:16}}>
+        <div style={{display:'flex', alignItems:'flex-end', gap:8, height:180, padding:'0 4px 28px', marginBottom:16, overflow:'hidden'}}>
           {chartData.map((d, i) => (
             <div key={i} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:2}}>
               <div style={{display:'flex', alignItems:'flex-end', gap:4, width:'100%'}}>
@@ -1008,7 +1008,7 @@ function StatsPage() {
                   const h = Math.round((d[b.key] / max) * 140);
                   return (
                     <div key={b.key} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center'}}>
-                      <span style={{fontSize:9, color:'var(--muted)', marginBottom:2, fontFamily:'var(--mono)'}}>{d[b.key]}%</span>
+                      <span style={{fontSize:8, color:'var(--muted)', marginBottom:2, fontFamily:'var(--mono)', whiteSpace:'nowrap', overflow:'hidden', maxWidth:'100%', textAlign:'center', display:'block'}}>{d[b.key]}%</span>
                       <div style={{width:'100%', height:h, background:b.color, borderRadius:'3px 3px 0 0'}}/>
                     </div>
                   );
