@@ -7,6 +7,31 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyANBRsAo4yknC8B9G5XV197tIARYnutaFA",
+    authDomain: "yjbs-bea80.firebaseapp.com",
+    projectId: "yjbs-bea80",
+    storageBucket: "yjbs-bea80.firebasestorage.app",
+    messagingSenderId: "264619735822",
+    appId: "1:264619735822:web:07d7e02f98abf2fe75355f"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.__db = db;
+  window.__fbCollection = collection;
+  window.__fbAddDoc = addDoc;
+  window.__fbGetDocs = getDocs;
+  window.__fbOrderBy = orderBy;
+  window.__fbQuery = query;
+  window.__fbServerTimestamp = serverTimestamp;
+  window.__fbReady = true;
+  window.dispatchEvent(new Event('firebaseReady'));
+</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
   @font-face {
@@ -782,6 +807,126 @@ function ChartLegend({ bars }) {
 }
 
 
+
+function BoardPage() {
+  const [posts, setPosts]       = React.useState([]);
+  const [loading, setLoading]   = React.useState(true);
+  const [posting, setPosting]   = React.useState(false);
+  const [title, setTitle]       = React.useState('');
+  const [body, setBody]         = React.useState('');
+  const [author, setAuthor]     = React.useState('');
+  const [category, setCategory] = React.useState('건의사항');
+  const [msg, setMsg]           = React.useState('');
+  const [fbReady, setFbReady]   = React.useState(!!window.__fbReady);
+
+  React.useEffect(() => {
+    if (!fbReady) {
+      window.addEventListener('firebaseReady', () => setFbReady(true), {once:true});
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!fbReady) return;
+    loadPosts();
+  }, [fbReady]);
+
+  async function loadPosts() {
+    setLoading(true);
+    try {
+      const q = window.__fbQuery(
+        window.__fbCollection(window.__db, 'board'),
+        window.__fbOrderBy('createdAt', 'desc')
+      );
+      const snap = await window.__fbGetDocs(q);
+      setPosts(snap.docs.map(d => ({id: d.id, ...d.data()})));
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  }
+
+  async function submit() {
+    if (!title.trim() || !body.trim()) { setMsg('제목과 내용을 입력해주세요.'); return; }
+    setPosting(true);
+    try {
+      await window.__fbAddDoc(
+        window.__fbCollection(window.__db, 'board'),
+        {
+          title: title.trim(),
+          body: body.trim(),
+          author: author.trim() || '익명',
+          category,
+          createdAt: window.__fbServerTimestamp()
+        }
+      );
+      setTitle(''); setBody(''); setAuthor(''); setMsg('등록되었습니다!');
+      loadPosts();
+    } catch(e) { setMsg('오류가 발생했습니다: ' + e.message); }
+    setPosting(false);
+  }
+
+  const catColor = c => c==='버그제보' ? '#b02020' : c==='건의사항' ? '#1a6db5' : '#5a3ea0';
+
+  return (
+    <div className="container">
+
+      {/* 작성 폼 */}
+      <div style={{background:'var(--card)',border:'1.5px solid var(--border)',borderRadius:10,padding:'20px',marginBottom:20}}>
+        <div style={{fontWeight:700,fontSize:15,color:'var(--navy)',marginBottom:14}}>✏️ 글 작성</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:10}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>분류</div>
+            <select value={category} onChange={e=>setCategory(e.target.value)} style={{width:'100%',padding:'8px 10px',border:'1.5px solid var(--border)',borderRadius:6,fontFamily:'var(--font)',fontSize:13}}>
+              <option>건의사항</option>
+              <option>버그제보</option>
+              <option>기타</option>
+            </select>
+          </div>
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>작성자</div>
+            <input value={author} onChange={e=>setAuthor(e.target.value)} placeholder="익명" style={{width:'100%',padding:'8px 10px',border:'1.5px solid var(--border)',borderRadius:6,fontFamily:'var(--font)',fontSize:13}} />
+          </div>
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>제목</div>
+            <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="제목을 입력하세요" style={{width:'100%',padding:'8px 10px',border:'1.5px solid var(--border)',borderRadius:6,fontFamily:'var(--font)',fontSize:13}} />
+          </div>
+        </div>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>내용</div>
+          <textarea value={body} onChange={e=>setBody(e.target.value)} rows={4} placeholder="내용을 입력하세요" style={{width:'100%',padding:'10px',border:'1.5px solid var(--border)',borderRadius:6,fontFamily:'var(--font)',fontSize:13,resize:'vertical'}} />
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <button onClick={submit} disabled={posting||!fbReady} style={{
+            padding:'9px 24px',background:'var(--navy)',color:'#fff',border:'none',
+            borderRadius:6,fontFamily:'var(--font)',fontSize:13,fontWeight:600,cursor:'pointer'
+          }}>{posting ? '등록 중...' : '등록'}</button>
+          {msg && <span style={{fontSize:13,color: msg.includes('오류')?'var(--fail)':'var(--pass)'}}>{msg}</span>}
+          {!fbReady && <span style={{fontSize:12,color:'var(--muted)'}}>Firebase 연결 중...</span>}
+        </div>
+      </div>
+
+      {/* 글 목록 */}
+      {loading ? (
+        <div style={{textAlign:'center',padding:40,color:'var(--muted)',fontSize:14}}>불러오는 중...</div>
+      ) : posts.length === 0 ? (
+        <div style={{textAlign:'center',padding:40,color:'var(--muted)',fontSize:14}}>아직 등록된 글이 없습니다.</div>
+      ) : (
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {posts.map(p => (
+            <div key={p.id} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:10,padding:'16px 18px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,background: catColor(p.category)+'22',color:catColor(p.category)}}>{p.category}</span>
+                <span style={{fontWeight:600,fontSize:14,color:'var(--navy)',flex:1}}>{p.title}</span>
+                <span style={{fontSize:11,color:'var(--muted)'}}>{p.author}</span>
+              </div>
+              <div style={{fontSize:13,color:'var(--text)',lineHeight:1.7,whiteSpace:'pre-wrap'}}>{p.body}</div>
+              {p.createdAt && <div style={{fontSize:11,color:'var(--muted)',marginTop:8}}>{new Date(p.createdAt.seconds*1000).toLocaleString('ko-KR')}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SeminarPage() {
   const [selected, setSelected] = React.useState(null);
 
@@ -1141,10 +1286,11 @@ function App() {
             <button className={activeTab==='search' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('search')}>🔍 검색</button>
             <button className={activeTab==='stats' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('stats')}>📊 통계</button>
             <button className={activeTab==='seminar' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('seminar')}>📋 입시설명회</button>
+            <button className={activeTab==='board' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('board')}>💬 게시판</button>
           </div>
         </div>
       </div>
-      {activeTab === 'seminar' ? <SeminarPage /> : activeTab === 'stats' ? <StatsPage /> : <div className="container">
+      {activeTab === 'board' ? <BoardPage /> : activeTab === 'seminar' ? <SeminarPage /> : activeTab === 'stats' ? <StatsPage /> : <div className="container">
         {/* STATS */}
         <div className="stats-row">
           <div className="stat-card">
