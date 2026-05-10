@@ -1289,11 +1289,10 @@ function App() {
             <button className={activeTab==='search' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('search')}>🔍 검색</button>
             <button className={activeTab==='stats' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('stats')}>📊 통계</button>
             <button className={activeTab==='seminar' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('seminar')}>📋 입시설명회</button>
-            <button className={activeTab==='board' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('board')}>💬 게시판</button>
           </div>
         </div>
       </div>
-      {activeTab === 'board' ? <BoardPage /> : activeTab === 'seminar' ? <SeminarPage /> : activeTab === 'stats' ? <StatsPage /> : <div className="container">
+      {activeTab === 'seminar' ? <SeminarPage /> : activeTab === 'stats' ? <StatsPage /> : <div className="container">
         {/* STATS */}
         <div className="stats-row">
           <div className="stat-card">
