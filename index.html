@@ -551,8 +551,8 @@ function App() {
 
   function StatusBadge({ v }) {
     const cls = v==='합격' ? 'status-pass' : v==='충원합격' ? 'status-extra' : 'status-fail';
-    const icon = v==='합격' ? '✓' : v==='충원합격' ? '△' : '✗';
-    return <span className={`status-badge ${cls}`}>{icon} {v}</span>;
+    const icon = v==='합격' ? '✓' : v==='충원합격' ? '▲' : '✗';
+    return <span className={`status-badge ${cls}`}><span style={{fontFamily:'system-ui,sans-serif'}}>{icon}</span> {v}</span>;
   }
 
   const typeDisplayFn = v => v.includes('종합') ? '종합' : v.includes('교과') ? '교과' : v.includes('논술') ? '논술' : '실기';
