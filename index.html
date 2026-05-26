@@ -816,20 +816,34 @@ function ChartLegend({ bars }) {
 
 
 function BoardPage() {
-  const [posts, setPosts]       = React.useState([]);
-  const [loading, setLoading]   = React.useState(true);
-  const [posting, setPosting]   = React.useState(false);
-  const [title, setTitle]       = React.useState('');
-  const [body, setBody]         = React.useState('');
-  const [author, setAuthor]     = React.useState('');
-  const [category, setCategory] = React.useState('건의사항');
-  const [msg, setMsg]           = React.useState('');
-  const [fbReady, setFbReady]   = React.useState(!!window.__fbReady);
+  const [selected,   setSelected]   = React.useState(null);
+  const [posts,      setPosts]      = React.useState([]);
+  const [loading,    setLoading]    = React.useState(true);
+  const [posting,    setPosting]    = React.useState(false);
+  const [title,      setTitle]      = React.useState('');
+  const [body,       setBody]       = React.useState('');
+  const [author,     setAuthor]     = React.useState('');
+  const [category,   setCategory]   = React.useState('입시팁');
+  const [filterCat,  setFilterCat]  = React.useState('전체');
+  const [msg,        setMsg]        = React.useState('');
+  const [fbReady,    setFbReady]    = React.useState(!!window.__fbReady);
+  const [showForm,   setShowForm]   = React.useState(false);
+  const [searchBoard, setSearchBoard] = React.useState('');
+
+  // 입시설명회 자료를 설명회후기 카테고리 카드로 변환
+  const docPosts = SEMINAR_DOCS.map(doc => ({
+    id: 'doc_' + doc.id,
+    type: 'doc',
+    category: '설명회후기',
+    title: doc.title,
+    author: doc.subtitle,
+    html: doc.html,
+    createdAt: null,
+    tags: doc.tags,
+  }));
 
   React.useEffect(() => {
-    if (!fbReady) {
-      window.addEventListener('firebaseReady', () => setFbReady(true), {once:true});
-    }
+    if (!fbReady) window.addEventListener('firebaseReady', () => setFbReady(true), {once:true});
   }, []);
 
   React.useEffect(() => {
@@ -845,7 +859,7 @@ function BoardPage() {
         window.__fbOrderBy('createdAt', 'desc')
       );
       const snap = await window.__fbGetDocs(q);
-      setPosts(snap.docs.map(d => ({id: d.id, ...d.data()})));
+      setPosts(snap.docs.map(d => ({id: d.id, type: 'post', ...d.data()})));
     } catch(e) { console.error(e); }
     setLoading(false);
   }
@@ -856,79 +870,163 @@ function BoardPage() {
     try {
       await window.__fbAddDoc(
         window.__fbCollection(window.__db, 'board'),
-        {
-          title: title.trim(),
-          body: body.trim(),
-          author: author.trim() || '익명',
-          category,
-          createdAt: window.__fbServerTimestamp()
-        }
+        { title: title.trim(), body: body.trim(), author: author.trim() || '익명', category, createdAt: window.__fbServerTimestamp() }
       );
       setTitle(''); setBody(''); setAuthor(''); setMsg('등록되었습니다!');
-      loadPosts();
-    } catch(e) { setMsg('오류가 발생했습니다: ' + e.message); }
+      setShowForm(false); loadPosts();
+    } catch(e) { setMsg('오류: ' + e.message); }
     setPosting(false);
   }
 
-  const catColor = c => c==='버그제보' ? '#b02020' : c==='건의사항' ? '#1a6db5' : '#5a3ea0';
+  const catColor = c =>
+    c==='입시팁' ? '#1a6db5' :
+    c==='설명회후기' ? '#1a7a4a' :
+    c==='전략공유' ? '#5a3ea0' : '#6b7a8d';
+
+  // 전체 목록 합치기 (문서 + Firebase 글)
+  const allPosts = [...docPosts, ...posts];
+  const filtered = allPosts.filter(p => {
+    if (filterCat !== '전체' && p.category !== filterCat) return false;
+    if (searchBoard.trim() && !p.title.toLowerCase().includes(searchBoard.trim().toLowerCase())) return false;
+    return true;
+  });
+
+  // 뷰어
+  if (selected) {
+    return (
+      <div style={{maxWidth:820, margin:'0 auto', padding:'20px 16px 60px'}}>
+        <button onClick={()=>setSelected(null)} style={{
+          marginBottom:20, padding:'8px 14px', background:'var(--navy)', color:'#fff',
+          border:'none', borderRadius:6, cursor:'pointer', fontFamily:'var(--font)', fontSize:13
+        }}>목록으로</button>
+        {selected.type === 'doc' ? (
+          <div style={{background:'#fff', border:'1px solid var(--border)', borderRadius:10, padding:'32px 28px'}}
+            className="content" dangerouslySetInnerHTML={{__html: selected.html}} />
+        ) : (
+          <div style={{background:'#fff', border:'1px solid var(--border)', borderRadius:10, padding:'28px'}}>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
+              <span style={{fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:catColor(selected.category)+'22', color:catColor(selected.category)}}>{selected.category}</span>
+              <span style={{fontWeight:700, fontSize:18, color:'var(--navy)'}}>{selected.title}</span>
+            </div>
+            <div style={{fontSize:12, color:'var(--muted)', marginBottom:16}}>
+              <span style={{fontWeight:600, color:'var(--text)'}}>{selected.author}</span>
+              {selected.createdAt && <span style={{marginLeft:8}}>{new Date(selected.createdAt.seconds*1000).toLocaleString('ko-KR')}</span>}
+            </div>
+            <div style={{fontSize:14, color:'var(--text)', lineHeight:1.8, whiteSpace:'pre-wrap'}}>{selected.body}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="container">
 
-      {/* 작성 폼 */}
-      <div style={{background:'var(--card)',border:'1.5px solid var(--border)',borderRadius:10,padding:'20px',marginBottom:20}}>
-        <div style={{fontWeight:700,fontSize:15,color:'var(--navy)',marginBottom:14}}>✏️ 글 작성</div>
-        <div style={{display:'grid',gridTemplateColumns:'0.8fr 2fr 1fr',gap:10,marginBottom:10}}>
-          <div>
-            <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>분류</div>
-            <select value={category} onChange={e=>setCategory(e.target.value)} style={{width:'100%',padding:'8px 10px',border:'1.5px solid var(--border)',borderRadius:6,fontFamily:'var(--font)',fontSize:13}}>
-              <option>건의사항</option>
-              <option>버그제보</option>
-              <option>기타</option>
-            </select>
+      {/* 상단 — 필터 + 글쓰기 */}
+      <div style={{display:'flex', flexDirection:'column', gap:10, marginBottom:16}}>
+        <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>
+          <div style={{display:'flex', gap:6, flex:1, flexWrap:'wrap'}}>
+            {['전체','입시팁','설명회후기','전략공유','기타'].map(c => (
+              <button key={c} onClick={()=>setFilterCat(c)} style={{
+                padding:'7px 16px', borderRadius:20, border:'1.5px solid',
+                borderColor: filterCat===c ? 'var(--blue)' : 'var(--border)',
+                background: filterCat===c ? 'var(--blue)' : '#fff',
+                color: filterCat===c ? '#fff' : 'var(--muted)',
+                fontFamily:'var(--font)', fontSize:15, fontWeight:600, cursor:'pointer'
+              }}>{c}</button>
+            ))}
           </div>
-          <div>
-            <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>제목</div>
-            <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="제목을 입력하세요" style={{width:'100%',padding:'8px 10px',border:'1.5px solid var(--border)',borderRadius:6,fontFamily:'var(--font)',fontSize:13}} />
-          </div>
-          <div>
-            <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>작성자</div>
-            <input value={author} onChange={e=>setAuthor(e.target.value)} placeholder="익명" style={{width:'100%',padding:'8px 10px',border:'1.5px solid var(--border)',borderRadius:6,fontFamily:'var(--font)',fontSize:13}} />
-          </div>
+        <button onClick={()=>setShowForm(f=>!f)} style={{
+          padding:'8px 16px', background: showForm ? '#6b7a8d' : 'var(--navy)',
+          color:'#fff', border:'none', borderRadius:6,
+          fontFamily:'var(--font)', fontSize:13, fontWeight:600, cursor:'pointer', flexShrink:0
+        }}>{showForm ? '취소' : '✏️ 글 작성'}</button>
         </div>
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>내용</div>
-          <textarea value={body} onChange={e=>setBody(e.target.value)} rows={4} placeholder="내용을 입력하세요" style={{width:'100%',padding:'10px',border:'1.5px solid var(--border)',borderRadius:6,fontFamily:'var(--font)',fontSize:13,resize:'vertical'}} />
-        </div>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <button onClick={submit} disabled={posting||!fbReady} style={{
-            padding:'9px 24px',background:'var(--navy)',color:'#fff',border:'none',
-            borderRadius:6,fontFamily:'var(--font)',fontSize:13,fontWeight:600,cursor:'pointer'
-          }}>{posting ? '등록 중...' : '등록'}</button>
-          {msg && <span style={{fontSize:13,color: msg.includes('오류')?'var(--fail)':'var(--pass)'}}>{msg}</span>}
-          {!fbReady && <span style={{fontSize:12,color:'var(--muted)'}}>Firebase 연결 중...</span>}
-        </div>
+        <input
+          type="text"
+          placeholder="제목 검색..."
+          value={searchBoard}
+          onChange={e=>setSearchBoard(e.target.value)}
+          style={{
+            width:'100%', padding:'9px 14px', fontSize:15,
+            border:'1.5px solid var(--border)', borderRadius:8,
+            fontFamily:'var(--font)', outline:'none'
+          }}
+        />
       </div>
 
-      {/* 글 목록 */}
-      {loading ? (
-        <div style={{textAlign:'center',padding:40,color:'var(--muted)',fontSize:14}}>불러오는 중...</div>
-      ) : posts.length === 0 ? (
-        <div style={{textAlign:'center',padding:40,color:'var(--muted)',fontSize:14}}>아직 등록된 글이 없습니다.</div>
-      ) : (
-        <div style={{display:'flex',flexDirection:'column',gap:12}}>
-          {posts.map(p => (
-            <div key={p.id} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:10,padding:'16px 18px'}}>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,background: catColor(p.category)+'22',color:catColor(p.category),flexShrink:0}}>{p.category}</span>
-                <span style={{fontWeight:600,fontSize:14,color:'var(--navy)',flex:1}}>{p.title}</span>
-              </div>
-              <div style={{fontSize:12,color:'var(--muted)',marginBottom:8}}>
-                <span style={{fontWeight:600,color:'var(--text)',fontSize:13}}>{p.author}</span>
-                {p.createdAt && <span style={{marginLeft:8}}>{new Date(p.createdAt.seconds*1000).toLocaleString('ko-KR')}</span>}
-              </div>
-              <div style={{fontSize:13,color:'var(--text)',lineHeight:1.7,whiteSpace:'pre-wrap'}}>{p.body}</div>
+      {/* 작성 폼 */}
+      {showForm && (
+        <div style={{background:'var(--card)', border:'1.5px solid var(--blue)', borderRadius:10, padding:20, marginBottom:20}}>
+          <div style={{display:'grid', gridTemplateColumns:'0.8fr 2fr 1fr', gap:10, marginBottom:10}}>
+            <div>
+              <div style={{fontSize:11, fontWeight:600, color:'var(--muted)', marginBottom:4}}>분류</div>
+              <select value={category} onChange={e=>setCategory(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1.5px solid var(--border)', borderRadius:6, fontFamily:'var(--font)', fontSize:13}}>
+                <option>입시팁</option>
+                <option>설명회후기</option>
+                <option>전략공유</option>
+                <option>기타</option>
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:11, fontWeight:600, color:'var(--muted)', marginBottom:4}}>제목</div>
+              <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="제목을 입력하세요" style={{width:'100%', padding:'8px 10px', border:'1.5px solid var(--border)', borderRadius:6, fontFamily:'var(--font)', fontSize:13}} />
+            </div>
+            <div>
+              <div style={{fontSize:11, fontWeight:600, color:'var(--muted)', marginBottom:4}}>작성자</div>
+              <input value={author} onChange={e=>setAuthor(e.target.value)} placeholder="익명" style={{width:'100%', padding:'8px 10px', border:'1.5px solid var(--border)', borderRadius:6, fontFamily:'var(--font)', fontSize:13}} />
+            </div>
+          </div>
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:11, fontWeight:600, color:'var(--muted)', marginBottom:4}}>내용</div>
+            <textarea value={body} onChange={e=>setBody(e.target.value)} rows={4}
+              placeholder="입시 팁, 설명회 후기, 전략 등을 공유해주세요"
+              style={{width:'100%', padding:'10px', border:'1.5px solid var(--border)', borderRadius:6, fontFamily:'var(--font)', fontSize:13, resize:'vertical'}} />
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:12}}>
+            <button onClick={submit} disabled={posting||!fbReady} style={{
+              padding:'9px 24px', background:'var(--navy)', color:'#fff', border:'none',
+              borderRadius:6, fontFamily:'var(--font)', fontSize:13, fontWeight:600, cursor:'pointer'
+            }}>{posting ? '등록 중...' : '등록'}</button>
+            {msg && <span style={{fontSize:13, color: msg.includes('오류')?'var(--fail)':'var(--pass)'}}>{msg}</span>}
+          </div>
+        </div>
+      )}
 
+      {/* 게시글 목록 */}
+      <div style={{fontSize:12, color:'var(--muted)', marginBottom:10}}>
+        <strong style={{color:'var(--text)'}}>{filtered.length}</strong>개의 글
+      </div>
+
+      {loading ? (
+        <div style={{textAlign:'center', padding:30, color:'var(--muted)', fontSize:14}}>불러오는 중...</div>
+      ) : filtered.length === 0 ? (
+        <div style={{textAlign:'center', padding:30, color:'var(--muted)', fontSize:14}}>해당 분류의 글이 없습니다.</div>
+      ) : (
+        <div style={{display:'flex', flexDirection:'column', gap:12}}>
+          {filtered.map(p => (
+            <div key={p.id} onClick={()=>setSelected(p)}
+              style={{background:'var(--card)', border:'1px solid var(--border)', borderRadius:10, padding:'16px 18px', cursor:'pointer', display:'flex', alignItems:'center', gap:14}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.boxShadow='0 2px 12px rgba(26,109,181,0.1)';}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.boxShadow='none';}}
+            >
+              <div style={{width:40, height:40, background:catColor(p.category)+'18', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0}}>
+                {p.type==='doc' ? '📄' : '✏️'}
+              </div>
+              <div style={{flex:1, minWidth:0}}>
+                <div style={{display:'flex', alignItems:'center', gap:7, marginBottom:4}}>
+                  <span style={{fontSize:11, fontWeight:700, padding:'2px 7px', borderRadius:20, background:catColor(p.category)+'22', color:catColor(p.category), flexShrink:0}}>{p.category}</span>
+                  <span style={{fontWeight:600, fontSize:14, color:'var(--navy)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.title}</span>
+                </div>
+                <div style={{fontSize:12, color:'var(--muted)'}}>
+                  <span style={{fontWeight:600, color:'var(--text)'}}>{p.author}</span>
+                  {p.createdAt && <span style={{marginLeft:8}}>{new Date(p.createdAt.seconds*1000).toLocaleString('ko-KR')}</span>}
+                  {p.tags && p.tags.map(t=>(
+                    <span key={t} style={{marginLeft:6, fontSize:11, padding:'1px 6px', borderRadius:10, background:'#e8eef6', color:'var(--blue)'}}>{t}</span>
+                  ))}
+                </div>
+              </div>
+              <div style={{color:'var(--muted)', fontSize:16, flexShrink:0}}>→</div>
             </div>
           ))}
         </div>
@@ -1336,11 +1434,11 @@ function App() {
           <div className="tab-bar">
             <button className={activeTab==='search' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('search')}>🔍 검색</button>
             <button className={activeTab==='stats' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('stats')}>📊 통계</button>
-            <button className={activeTab==='seminar' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('seminar')}>📋 입시설명회</button>
+            <button className={activeTab==='board' ? 'tab-btn active' : 'tab-btn'} onClick={()=>setActiveTab('board')}>📌 입시정보공유</button>
           </div>
         </div>
       </div>
-      {activeTab === 'seminar' ? <SeminarPage /> : activeTab === 'stats' ? <StatsPage /> : <div className="container">
+      {activeTab === 'board' ? <BoardPage /> : activeTab === 'stats' ? <StatsPage /> : <div className="container">
         {/* STATS */}
         <div className="stats-row">
           <div className="stat-card">
