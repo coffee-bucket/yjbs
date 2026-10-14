@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
@@ -1001,7 +1001,7 @@ function statsType(value) {
   if (value.includes('실기')) return '실기';
   return value || '미분류';
 }
-function buildStats(data, years, selectedYear) {
+function buildStats(data, years, selectedYears) {
   const passed = r => r.합격여부 === '합격' || r.합격여부 === '충원합격';
   const summarize = rows => {
     const counts = {합격:0, 충원합격:0, 불합격:0, 미확인:0};
@@ -1021,7 +1021,8 @@ function buildStats(data, years, selectedYear) {
     const values = rows.map(r => r[key]).filter(v => typeof v === 'number' && Number.isFinite(v) && v > 0);
     return values.length ? (values.reduce((a,b) => a+b, 0) / values.length).toFixed(2) : '-';
   };
-  const labels = selectedYear === '전체' ? ['전체', ...years.slice().sort((a,b)=>a-b)] : [selectedYear];
+  const visibleYears = (selectedYears.length ? selectedYears : years).slice().sort((a,b)=>a-b);
+  const labels = visibleYears.length > 1 ? ['전체', ...visibleYears] : visibleYears;
   const special = r => /농어촌|기회균형|고른기회/.test(r.세부유형 || '');
   const specialRows = [true, false].flatMap(isSpecial => labels.map(year => ({
     구분:isSpecial ? '특별전형(농어촌·기회균형·고른기회)' : '일반전형', 연도:year,
@@ -1058,10 +1059,11 @@ function buildStats(data, years, selectedYear) {
 }
 
 function StatsPage() {
-  const [selectedYear, setSelectedYear] = React.useState('전체');
+  const [selectedYears, setSelectedYears] = React.useState([]);
+  const toggleYear = year => setSelectedYears(current => current.includes(year) ? current.filter(y=>y!==year) : [...current, year]);
   const years = React.useMemo(() => [...new Set(RAW_DATA.map(r=>String(r.연도)))].sort((a,b)=>b-a), []);
-  const data = React.useMemo(() => selectedYear === '전체' ? RAW_DATA : RAW_DATA.filter(r=>String(r.연도) === selectedYear), [selectedYear]);
-  const stats = React.useMemo(() => buildStats(data, years, selectedYear), [data, years, selectedYear]);
+  const data = React.useMemo(() => selectedYears.length === 0 ? RAW_DATA : RAW_DATA.filter(r=>selectedYears.includes(String(r.연도))), [selectedYears]);
+  const stats = React.useMemo(() => buildStats(data, years, selectedYears), [data, years, selectedYears]);
   const {yearly:STAT_YEARLY, types:STAT_TYPE, departments:STAT_DEPT, grades:STAT_GRADE, regions:STAT_REGION, top40:STAT_TOP40, metro:STAT_METRO, special:STAT_SPECIAL} = stats;
   const totalRow = <tr><td>합계</td><td>{stats.totals.합격.toLocaleString()}</td><td>{stats.totals.충원합격.toLocaleString()}</td><td>{stats.totals.불합격.toLocaleString()}</td><td>{stats.totals.합격률.toFixed(1)}%</td></tr>;
   const pct = v => v.toFixed(1) + '%';
@@ -1077,12 +1079,17 @@ function StatsPage() {
     <div className="container">
 
       <div className="chart-card stats-section" style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-        <label htmlFor="stats-year" style={{fontWeight:700}}>통계 연도</label>
-        <select id="stats-year" value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} style={{padding:'8px 12px',border:'1px solid var(--border)',borderRadius:7,fontSize:14,background:'#fff'}}>
-          <option value="전체">전체 연도</option>
-          {years.map(year=><option key={year} value={year}>{year}년</option>)}
-        </select>
-        <span style={{fontSize:12,color:'var(--muted)'}}>{selectedYear === '전체' ? '전체 연도' : selectedYear+'년'} 기준 · 모든 통계에 적용</span>
+        <span id="stats-year-label" style={{fontWeight:700}}>통계 연도</span>
+        <div role="group" aria-labelledby="stats-year-label" style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {['전체', ...years].map(year=>{
+            const active = year === '전체' ? selectedYears.length === 0 : selectedYears.includes(year);
+            return <button key={year} type="button" aria-pressed={active}
+              onClick={()=>year === '전체' ? setSelectedYears([]) : toggleYear(year)}
+              style={{padding:'9px 16px',border:'1px solid '+(active ? 'var(--blue)' : 'var(--border)'),borderRadius:7,fontSize:14,fontWeight:active?700:400,background:active?'var(--blue)':'#fff',color:active?'#fff':'var(--navy)',cursor:'pointer'}}>
+              {year === '전체' ? '전체 연도' : year+'년'}
+            </button>;
+          })}
+        </div>
       </div>
       {/* 요약 */}
       <div className="summary-grid">
@@ -1109,7 +1116,7 @@ function StatsPage() {
             <thead><tr><th>연도</th><th>합격</th><th>충원합격</th><th>불합격</th><th>합격률</th></tr></thead>
             <tbody>
               {STAT_YEARLY.map(r => (
-                <tr key={r.연도}><td>{r.연도}</td><td>{r.합격}</td><td>{r.충원합격}</td><td>{r.불합격}</td><td>{pct(r.합격률)}</td></tr>
+                <tr key={r.연도}><td>{r.연도 === '전체' && selectedYears.length ? '선택 합계' : r.연도}</td><td>{r.합격}</td><td>{r.충원합격}</td><td>{r.불합격}</td><td>{pct(r.합격률)}</td></tr>
               ))}
               {totalRow}
             </tbody>
@@ -1247,7 +1254,7 @@ function StatsPage() {
                   );
                 })}
               </div>
-              <span style={{fontSize:11, color:'var(--muted)', marginTop:4}}>{d.연도}</span>
+              <span style={{fontSize:11, color:'var(--muted)', marginTop:4}}>{d.연도 === '전체' && selectedYears.length ? '선택 합계' : d.연도}</span>
             </div>
           ))}
         </div>
